@@ -101,26 +101,43 @@ class MainViewController: UIViewController {
         let dateString = String(format: "%04d-%02d-%02d", year, month, day)
         print("Fetch NASA data for date: \(dateString)")
         
+        // 顯示等待動畫
+        lbInfo.text = "讀取中..."
+        aivWait.isHidden = false
+        aivWait.startAnimating()
+        imgNASA.image = nil // 先清空
+        
         NetworkManager.shared.fetchNASAData(for: dateString) { [weak self] result in
             DispatchQueue.main.async {
+                
                 switch result {
-                case .success(let data):
-                    self?.loadImage(from: data.url)
+                case .success(let nasaData):
+                    // 先更新文字訊息
+                    DispatchQueue.main.async {
+                        self?.lbInfo.text = """
+                        日期：\(nasaData.date)
+                        標題：\(nasaData.title)
+                        """
+                    }
+                    
+                    // 下載圖片
+                    self?.loadImage(from: nasaData.url) {
+                        self?.aivWait.stopAnimating()
+                        self?.aivWait.isHidden = true
+                    }
+                    
                 case .failure(let error):
-                    print("Error fetching data: \(error.localizedDescription)")
+                    DispatchQueue.main.async {
+                        self?.lbInfo.text = "讀取失敗：\(error.localizedDescription)"
+                        self?.aivWait.stopAnimating()
+                        self?.aivWait.isHidden = true
+                    }
                 }
             }
         }
     }
-
     
-    func loadImage(from urlString: String) {
-    
-        // 顯示動畫
-        aivWait.isHidden = false
-        aivWait.startAnimating()
-        
-        imgNASA.image = nil // 先清空
+    func loadImage(from urlString: String, completion: @escaping () -> Void) {
         guard let url = URL(string: urlString) else {
             print("URL 格式錯誤")
             return
@@ -128,13 +145,10 @@ class MainViewController: UIViewController {
         
         URLSession.shared.dataTask(with: url) { data, _, error in
             DispatchQueue.main.async {
-                // 圖片下載完成才更新 UI
                 if let data = data, let image = UIImage(data: data) {
                     self.imgNASA.image = image
                 }
-                // 隱藏動畫
-                self.aivWait.stopAnimating()
-                self.aivWait.isHidden = true
+                completion()
             }
         }.resume()
     }
