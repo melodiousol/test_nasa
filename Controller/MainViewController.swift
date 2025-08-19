@@ -11,7 +11,7 @@
 import UIKit
 
 class MainViewController: UIViewController {
-    //測試
+    
     @IBOutlet weak var lbInfo: UILabel!
     @IBOutlet weak var aivWait: UIActivityIndicatorView!
     @IBOutlet weak var imgNASA: UIImageView!
