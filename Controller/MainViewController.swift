@@ -105,53 +105,65 @@ class MainViewController: UIViewController {
         lbInfo.text = "讀取中..."
         aivWait.isHidden = false
         aivWait.startAnimating()
-        imgNASA.image = nil // 先清空
+        imgNASA.image = nil
         
         NetworkManager.shared.fetchNASAData(for: dateString) { [weak self] result in
             DispatchQueue.main.async {
+                guard let self = self else { return }
                 
                 switch result {
                 case .success(let nasaData):
-                    // 先更新文字訊息
-                    DispatchQueue.main.async {
-                        self?.lbInfo.text = """
-                        日期：\(nasaData.date)
-                        標題：\(nasaData.title)
-                        """
-                    }
+                    // 更新文字
+                    self.lbInfo.text = "\(nasaData.date)\n\(nasaData.title)"
                     
-                    // 下載圖片
-                    self?.loadImage(from: nasaData.url) {
-                        self?.aivWait.stopAnimating()
-                        self?.aivWait.isHidden = true
+                    // 下載圖片 → 設定到 UIImageView → 停止動畫
+                    self.loadImage(from: nasaData.url) { image in
+                        self.imgNASA.image = image
+                        self.aivWait.stopAnimating()
+                        self.aivWait.isHidden = true
                     }
                     
                 case .failure(let error):
-                    DispatchQueue.main.async {
-                        self?.lbInfo.text = "讀取失敗：\(error.localizedDescription)"
-                        self?.aivWait.stopAnimating()
-                        self?.aivWait.isHidden = true
-                    }
+                    self.lbInfo.text = "讀取失敗：\(error.localizedDescription)"
+                    self.aivWait.stopAnimating()
+                    self.aivWait.isHidden = true
                 }
             }
         }
     }
     
-    func loadImage(from urlString: String, completion: @escaping () -> Void) {
+    func loadImage(from urlString: String,
+                   completion: @escaping (UIImage?) -> Void) {
         guard let url = URL(string: urlString) else {
             print("URL 格式錯誤")
+            completion(nil)
             return
         }
         
         URLSession.shared.dataTask(with: url) { data, _, error in
-            DispatchQueue.main.async {
-                if let data = data, let image = UIImage(data: data) {
-                    self.imgNASA.image = image
+            if let error = error {
+                print("下載圖片失敗: \(error.localizedDescription)")
+                DispatchQueue.main.async {
+                    completion(nil)
                 }
-                completion()
+                return
+            }
+            
+            guard let data = data, let image = UIImage(data: data) else {
+                print("圖片資料為空或無法轉換成 UIImage")
+                DispatchQueue.main.async {
+                    completion(nil)
+                }
+                return
+            }
+            
+            // 成功下載，回傳圖片
+            DispatchQueue.main.async {
+                completion(image)
             }
         }.resume()
     }
+
 }
 
 extension MainViewController: UIPickerViewDataSource {
